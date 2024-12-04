@@ -58,7 +58,7 @@ func (c *Conn) read() (api int32, data []byte, clean func(), ok bool) {
 	}
 	//fmt.Printf("%x\n", [6]byte(buf))
 	api, size, _, en = parseHeader([6]byte(buf))
-	fmt.Printf("%d %d %v %x\n", api, size, en, [6]byte(buf))
+	//fmt.Printf("%d %d %v %x\n", api, size, en, [6]byte(buf))
 	if size > maxMessageSize {
 		logErr(c.conn.Close())
 		return
