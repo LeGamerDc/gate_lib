@@ -28,6 +28,7 @@ type Conn struct {
 
 func (c *Conn) onTraffic() {
 	var (
+		api   int32
 		msg   []byte
 		clean func()
 		ok    = true
@@ -36,47 +37,43 @@ func (c *Conn) onTraffic() {
 		if c.blocking.Load() {
 			break
 		}
-		if msg, clean, ok = c.read(); ok {
+		if api, msg, clean, ok = c.read(); ok {
 			func() {
 				defer clean()
-				c.handler.Handle(msg)
+				c.handler.Handle(api, msg)
 			}()
 		}
 	}
 }
 
-func (c *Conn) read() (data []byte, clean func(), ok bool) {
+func (c *Conn) read() (api int32, data []byte, clean func(), ok bool) {
 	var (
-		buf    []byte
-		e      error
-		header = 2
+		buf  []byte
+		e    error
+		size int
+		en   bool
 	)
-	if buf, e = c.conn.Peek(2); e != nil {
+	if buf, e = c.conn.Peek(6); e != nil {
 		return
 	}
-	size, m, _, _, en := parseHeader([2]byte(buf))
-	if m {
-		if buf, e = c.conn.Peek(4); e != nil {
-			return
-		}
-		size = parseHeader2([2]byte(buf[2:]), size)
-		header = 4
-	}
+	//fmt.Printf("%x\n", [6]byte(buf))
+	api, size, _, en = parseHeader([6]byte(buf))
+	fmt.Printf("%d %d %v %x\n", api, size, en, [6]byte(buf))
 	if size > maxMessageSize {
 		logErr(c.conn.Close())
 		return
 	}
-	if buf, e = c.conn.Peek(header + size); e != nil {
+	if buf, e = c.conn.Peek(headerSize + size); e != nil {
 		return
 	}
-	data = buf[header : header+size]
+	data = buf[headerSize : headerSize+size]
 	clean = func() {
-		c.conn.Discard(header + size)
+		c.conn.Discard(headerSize + size)
 	}
 	if en && c.cipher != nil {
 		c.cipher.Decrypt(data)
 	}
-	return data, clean, true
+	return api, data, clean, true
 }
 
 // AsyncDo 阻塞connection读新消息，直到f完成。对于一些有限制串行的消息有用
@@ -94,19 +91,19 @@ func (c *Conn) AsyncDo(f func()) {
 	}()
 }
 
-func (c *Conn) Send(data []byte) error {
-	return c.sender.Send(data)
+func (c *Conn) Send(api int32, data []byte) error {
+	return c.sender.Send(api, data)
 }
 
 // SendNoEncrypt 不启用加密
-func (c *Conn) SendNoEncrypt(data []byte) error {
-	return c.sender.SendNoEncrypt(data)
+func (c *Conn) SendNoEncrypt(api int32, data []byte) error {
+	return c.sender.SendNoEncrypt(api, data)
 }
 
 // SendCompressed 不启用压缩，有一些消息会发给多个client，可以提前压缩
 // 避免每个connection压缩一次
-func (c *Conn) SendCompressed(data []byte) error {
-	return c.sender.SendCompressed(data)
+func (c *Conn) SendCompressed(api int32, data []byte) error {
+	return c.sender.SendCompressed(api, data)
 }
 
 func (c *Conn) UpdateCipher(cipher Cipher) {

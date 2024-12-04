@@ -32,8 +32,8 @@ func main() {
 		SB: gate.NewSenderBuilder(&gate.SenderConfig{
 			CompressThreshold: 100,
 			MaxBufferSize:     64 * 1024 * 1024,
-			MaxClusterSize:    32 * 1024,
-			DelaySendMs:       5,
+			//MaxClusterSize:    32 * 1024,
+			//DelaySendMs: 0,
 		}),
 		Logger: &logger{},
 	})
@@ -73,9 +73,9 @@ type h struct {
 	login bool
 }
 
-func (h *h) Handle(raw []byte) {
+func (h *h) Handle(api int32, raw []byte) {
 	ack := bytes.Clone(raw)
-	_ = h.conn.Send(ack)
+	_ = h.conn.Send(api, ack)
 	//if !h.login {
 	//	h.login = true
 	//	ack := bytes.Clone(raw)

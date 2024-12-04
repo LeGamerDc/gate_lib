@@ -7,9 +7,9 @@ var (
 )
 
 type SenderI interface {
-	Send([]byte) error
-	SendNoEncrypt([]byte) error
-	SendCompressed([]byte) error
+	Send(int32, []byte) error
+	SendNoEncrypt(int32, []byte) error
+	SendCompressed(int32, []byte) error
 
 	//OnTraffic()
 }
@@ -28,7 +28,7 @@ type Cipher interface {
 type ConnHandler interface {
 	// Handle 处理 client 发送的消息，Handle内部不应该阻塞。
 	// 如果存在阻塞性任务（如rpc访问其他服务）应当调用 conn.AsyncDo
-	Handle(raw []byte)
+	Handle(api int32, raw []byte)
 	Close()
 }
 
