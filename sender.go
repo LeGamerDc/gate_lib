@@ -22,7 +22,8 @@ var (
 		DelaySendMs:       0,               // disabled
 	})
 
-	enc *zstd.Encoder
+	delayCall *delay[*sender]
+	enc       *zstd.Encoder
 )
 
 type sendMsg struct {
@@ -46,9 +47,6 @@ func (s *senderBuilder) Build(conn *Conn) SenderI {
 		c:    s.c,
 		conn: conn,
 	}
-	d := newDelay[*sender](100000)
-	sd.d = d
-	go d.Start()
 	return sd
 }
 
@@ -61,7 +59,6 @@ type sender struct {
 	conn *Conn
 
 	mu        sync.Mutex
-	d         *delay[*sender]
 	queue     []sendMsg
 	triggered bool
 }
@@ -229,7 +226,7 @@ func (s *sender) send(data []byte, maskP, maskA byte) error {
 	if !s.triggered {
 		s.triggered = true
 		if s.c.DelaySendMs > 0 {
-			s.d.Push(s, time.Now().UnixMilli()+s.c.DelaySendMs)
+			delayCall.Push(s, time.Now().UnixMilli()+s.c.DelaySendMs)
 		} else {
 			logErr(s.conn.conn.Wake(s.callback))
 		}
@@ -290,4 +287,6 @@ func init() {
 	enc, _ = zstd.NewWriter(nil, // wont fail
 		zstd.WithEncoderLevel(zstd.SpeedBetterCompression),
 		zstd.WithEncoderConcurrency(1))
+	delayCall = newDelay[*sender](100000)
+	go delayCall.Start()
 }
